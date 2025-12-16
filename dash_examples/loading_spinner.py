@@ -56,4 +56,4 @@ def load_data(contents, filename):
     return f"File '{filename}' loaded successfully!"
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run(debug=True)
