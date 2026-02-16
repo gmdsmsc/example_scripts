@@ -1,47 +1,39 @@
-from pathlib import Path
-from datetime import datetime
 import os
+from datetime import datetime
 
-ROOT = Path("//network/home")
-IGNORE_DIRS = {str(ROOT / d) for d in ["Folder1","Folder2","Folder3"]}
+ROOT_DIR = "//network/home"
+IGNORE_DIRS = {ROOT_DIR + "/" + d for d in ["Folder1","Folder2","Folder3"]}
 IGNORE_EXT = {".db"}
 IGNORE_CHARS = {"~"}
 
-def walk(root):
-    stack=[str(root)]
+def walk(path):
+    stack=[path]
     while stack:
         p=stack.pop()
-        try:
-            with os.scandir(p) as it:
-                for e in it:
-                    ep=e.path
-                    if e.is_dir(follow_symlinks=False):
-                        if ep not in IGNORE_DIRS:
-                            stack.append(ep)
-                    else:
-                        yield ep
-        except: pass
+        with os.scandir(p) as it:
+            for e in it:
+                if e.is_file(): yield e
+                elif e.is_dir(follow_symlinks=False) and os.path.abspath(e.path).replace("\\","/") not in IGNORE_DIRS:
+                    stack.append(e.path)
 
-def meta(root, fpath):
-    name=os.path.basename(fpath)
+def meta(root, f):
+    name=f.name
     if any(c in name for c in IGNORE_CHARS): return
-    ext=os.path.splitext(name)[1].lower()
-    if ext in IGNORE_EXT: return
+    _,ext=os.path.splitext(name)
+    if ext.lower() in IGNORE_EXT: return
+    m=datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+    folder=os.path.normpath(os.path.dirname(f.path))
+    parent=os.path.normpath(os.path.dirname(root))
+    foldername=folder.replace(parent+"\\","")
+    return folder,name,ext,m,datetime.today().strftime("%d/%m/%y"),foldername
 
-    p=Path(fpath)
-    m=datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-    return (
-        str(p.parent),
-        name,
-        ext,
-        m,
-        datetime.today().strftime("%d/%m/%y"),
-        p.parent.relative_to(root).as_posix()
-    )
+def generate(root):
+    for f in walk(root):
+        m=meta(root,f)
+        if m: yield m
 
 if __name__=="__main__":
-    with open("output.csv","w",encoding="utf-8") as w:
+    with open("output.csv","w") as w:
         w.write(",,Folder,File Name,Extension,Date Modified,Date,FolderName\n")
-        for i,f in enumerate(walk(ROOT)):
-            m=meta(ROOT,f)
-            if m: w.write(f"{i}," + ",".join(m) + "\n")
+        for i,row in enumerate(generate(ROOT_DIR)):
+            w.write(f"{i}," + ",".join(row) + "\n")
