@@ -1,0 +1,34 @@
+from pathlib import Path
+from datetime import datetime
+import os
+
+ROOT = Path("//network/home")
+IGNORE_DIRS = {ROOT / d for d in ["Folder1","Folder2","Folder3"]}
+IGNORE_EXT = {".db"}
+IGNORE_CHARS = {"~"}
+
+def walk(root):
+    stack=[root]
+    while stack:
+        p=stack.pop()
+        try:
+            with os.scandir(p) as it:
+                for e in it:
+                    ep=Path(e.path)
+                    if e.is_dir(follow_symlinks=False) and ep not in IGNORE_DIRS:
+                        stack.append(ep)
+                    elif e.is_file():
+                        yield ep
+        except: pass
+
+def meta(root,f):
+    if any(c in f.name for c in IGNORE_CHARS) or f.suffix.lower() in IGNORE_EXT: return
+    m=datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+    return (f.parent.as_posix(),f.name,f.suffix,m,datetime.today().strftime("%d/%m/%y"),f.parent.relative_to(root).as_posix())
+
+if __name__=="__main__":
+    with open("output.csv","w",encoding="utf-8") as w:
+        w.write(",,Folder,File Name,Extension,Date Modified,Date,FolderName\n")
+        for i,f in enumerate(walk(ROOT)):
+            m=meta(ROOT,f)
+            if m: w.write(f"{i}," + ",".join(m) + "\n")
