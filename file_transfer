@@ -3,28 +3,41 @@ from datetime import datetime
 import os
 
 ROOT = Path("//network/home")
-IGNORE_DIRS = {ROOT / d for d in ["Folder1","Folder2","Folder3"]}
+IGNORE_DIRS = {str(ROOT / d) for d in ["Folder1","Folder2","Folder3"]}
 IGNORE_EXT = {".db"}
 IGNORE_CHARS = {"~"}
 
 def walk(root):
-    stack=[root]
+    stack=[str(root)]
     while stack:
         p=stack.pop()
         try:
             with os.scandir(p) as it:
                 for e in it:
-                    ep=Path(e.path)
-                    if e.is_dir(follow_symlinks=False) and ep not in IGNORE_DIRS:
-                        stack.append(ep)
-                    elif e.is_file():
+                    ep=e.path
+                    if e.is_dir(follow_symlinks=False):
+                        if ep not in IGNORE_DIRS:
+                            stack.append(ep)
+                    else:
                         yield ep
         except: pass
 
-def meta(root,f):
-    if any(c in f.name for c in IGNORE_CHARS) or f.suffix.lower() in IGNORE_EXT: return
-    m=datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-    return (f.parent.as_posix(),f.name,f.suffix,m,datetime.today().strftime("%d/%m/%y"),f.parent.relative_to(root).as_posix())
+def meta(root, fpath):
+    name=os.path.basename(fpath)
+    if any(c in name for c in IGNORE_CHARS): return
+    ext=os.path.splitext(name)[1].lower()
+    if ext in IGNORE_EXT: return
+
+    p=Path(fpath)
+    m=datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+    return (
+        str(p.parent),
+        name,
+        ext,
+        m,
+        datetime.today().strftime("%d/%m/%y"),
+        p.parent.relative_to(root).as_posix()
+    )
 
 if __name__=="__main__":
     with open("output.csv","w",encoding="utf-8") as w:
